@@ -90,6 +90,7 @@ class ProductRepository:
     async def get_product_by_id(self, product_id: int) -> Optional[Product]:
         result = await self.db.execute(
             select(Product)
+            .where(Product.id == product_id)
             .options(
                 selectinload(Product.category),
                 selectinload(Product.seller)

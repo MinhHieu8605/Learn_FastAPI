@@ -1,4 +1,6 @@
 from decimal import Decimal
+from optparse import Option
+from typing import Optional
 
 from pydantic import BaseModel
 
@@ -9,6 +11,9 @@ class CartItemsBase(BaseModel):
 
 class CartItemsCreate(CartItemsBase):
     pass
+
+class CartItemsUpdate(BaseModel):
+    quantity: Optional[int] = None
 
 class CartItemsResponse(BaseModel):
     id: int

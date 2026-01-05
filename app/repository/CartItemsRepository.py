@@ -1,4 +1,6 @@
-from sqlalchemy import select
+from typing import List, Any, Coroutine, Sequence
+
+from sqlalchemy import select, Row, RowMapping
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from Ecommerce.app.models import CartItem
@@ -19,6 +21,16 @@ class CartItemsRepository:
         )
         return result.scalar_one_or_none()
 
+    async def find_by_id(self, cart_item_id: int):
+        return await self.db.get(CartItem, cart_item_id)
+
+    async def find_by_ids(self, ids: List[int]) -> Sequence[CartItem]:
+        result = await self.db.execute(
+            select(CartItem)
+            .where(CartItem.id.in_(ids))
+        )
+        return result.scalars().all()
+
     async def save(self, cart_items: CartItem):
         self.db.add(cart_items)
         await self.db.commit()
@@ -27,4 +39,3 @@ class CartItemsRepository:
 
     async def delete(self, cart_items: CartItem) -> None:
         await self.db.delete(cart_items)
-        await self.db.commit()

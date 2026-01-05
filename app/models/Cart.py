@@ -16,6 +16,7 @@ class Cart(Base):
 
     cart_items = relationship("CartItem", back_populates="cart")
 
+    @property
     def get_total_price(self) -> Decimal:
         total_price = Decimal("0")
         for cart_item in self.cart_items:

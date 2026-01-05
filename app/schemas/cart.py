@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import List
 
 from pydantic import BaseModel
@@ -9,7 +10,7 @@ class CartResponse(BaseModel):
     id: int
     user_id: int
     items: List[CartItemsResponse]
-    total_price: float
+    total_price: Decimal
     total_items: int
 
     class Config:

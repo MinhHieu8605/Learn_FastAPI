@@ -1,3 +1,6 @@
+from typing import List
+
+from fastapi import HTTPException,status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from Ecommerce.app.converter.CartConverter import CartConverter
@@ -7,7 +10,8 @@ from Ecommerce.app.repository.CartItemsRepository import CartItemsRepository
 from Ecommerce.app.repository.CartRepository import CartRepository
 from Ecommerce.app.repository.ProductRepository import ProductRepository
 from Ecommerce.app.repository.UserRepository import UserRepository
-from Ecommerce.app.schemas.cartItems import CartItemsCreate
+from Ecommerce.app.schemas.cart import CartResponse
+from Ecommerce.app.schemas.cartItems import CartItemsCreate, CartItemsUpdate
 
 
 class CartService:
@@ -29,6 +33,10 @@ class CartService:
         cart = Cart(user=user)
         await self.cart_repo.save(cart)
         return cart
+
+    async def get_cart_by_user_id(self, user_id: int) -> CartResponse:
+        cart = await self.get_or_create_cart(user_id)
+        return self.cart_converter.to_cart_response(cart)
 
     async def add_item_to_cart(self, user_id: int, request: CartItemsCreate):
         cart = await self.get_or_create_cart(user_id)
@@ -57,6 +65,50 @@ class CartService:
             )
             cart_item_save = await self.cart_item_repo.save(cart_item)
         return self.cart_converter.to_cart_items_response(cart_item_save)
+
+    async def update_cart_item(
+        self,
+        cart_item_id: int,
+        user_id: int,
+        cart_item_update: CartItemsUpdate
+    ):
+        cart = await self.get_or_create_cart(user_id)
+        existing_cart_item = await self.cart_item_repo.find_by_id(cart_item_id)
+        if not existing_cart_item:
+            raise ResourceNotFoundException(f"Cart item not found with id = {cart_item_id}")
+        if not existing_cart_item.cart.id == cart.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Cart item does not belong to user"
+            )
+
+        if existing_cart_item.product.stock < cart_item_update.quantity:
+            raise InsufficientStockException(f"Insufficient stock for product with id = {existing_cart_item.product.id}")
+        if cart_item_update.quantity <= 0:
+            # cart.cart_items.remove(existing_cart_item)
+            await self.cart_item_repo.delete(existing_cart_item)
+            await self.db.commit()
+            return {f"Deleted cart item with id = {cart_item_id}"}
+
+        existing_cart_item.quantity = cart_item_update.quantity
+        return self.cart_converter.to_cart_items_response(await self.cart_item_repo.save(existing_cart_item))
+
+    async def delete_cart_item(self, cart_item_ids: List[int], user_id: int):
+        cart = await self.get_or_create_cart(user_id)
+        cart_items = await self.cart_item_repo.find_by_ids(cart_item_ids)
+        if not cart_items:
+            raise ResourceNotFoundException(f"Cart items not found with ids = {cart_item_ids}")
+        for item in cart_items:
+            if item.cart_id != cart.id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Cart item does not belong to user"
+                )
+            await self.cart_item_repo.delete(item)
+        await self.db.commit()
+        return {"message": "Cart items deleted successfully"}
+
+
 
 
 
